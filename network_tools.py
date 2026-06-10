@@ -19,13 +19,34 @@ ENABLE_TRACEROUTE = os.getenv("ENABLE_TRACEROUTE", "true").lower() in [
     "yes",
     "on",
 ]
-
+ENABLE_UBIQUITI_CHECK = os.getenv("ENABLE_UBIQUITI_CHECK", "true").lower() in [
+    "1",
+    "true",
+    "yes",
+    "on",
+]
+UBIQUITI_HTTPS_TIMEOUT_SECONDS = int(os.getenv("UBIQUITI_HTTPS_TIMEOUT_SECONDS", "8"))
+UBIQUITI_VERIFY_TLS = os.getenv("UBIQUITI_VERIFY_TLS", "false").lower() in [
+    "1",
+    "true",
+    "yes",
+    "on",
+]
 
 def _load_paramiko():
     try:
         import paramiko
 
         return paramiko, None
+    except Exception as error:
+        return None, str(error)
+
+
+def _load_requests():
+    try:
+        import requests
+
+        return requests, None
     except Exception as error:
         return None, str(error)
 
@@ -58,8 +79,24 @@ def get_mikrotik_config():
     }
 
 
+def get_ubiquiti_config():
+    return {
+        "host": os.getenv("UBIQUITI_HOST", ""),
+        "username": os.getenv("UBIQUITI_USER", ""),
+        "password": os.getenv("UBIQUITI_PASSWORD", ""),
+        "port": int(os.getenv("UBIQUITI_PORT", "443")),
+    }
+
+
 def _config_is_complete(config):
     return bool(config["host"] and config["username"] and config["password"])
+
+
+def _base_https_url(config):
+    host = str(config["host"]).strip().removeprefix("https://").removeprefix("http://")
+    if config.get("port") and int(config["port"]) != 443:
+        return f"https://{host}:{config['port']}"
+    return f"https://{host}"
 
 
 def run_mikrotik_command(command, command_label, command_timeout=None):
@@ -230,6 +267,135 @@ def mikrotik_traceroute(target=None):
     return result
 
 
+def ubiquiti_https_status():
+    if not ENABLE_UBIQUITI_CHECK:
+        logger.info("NETWORK_TOOL | device=ubiquiti | command=https_status | status=disabled")
+        return {
+            "success": True,
+            "status": "disabled",
+            "device": "ubiquiti",
+            "checks": [],
+            "error": "",
+        }
+
+    config = get_ubiquiti_config()
+    started_at = time.time()
+
+    if not _config_is_complete(config):
+        logger.warning("NETWORK_TOOL | device=ubiquiti | command=https_status | status=missing_env")
+        return {
+            "success": False,
+            "status": "missing_env",
+            "device": "ubiquiti",
+            "checks": [],
+            "error": "Faltan variables UBIQUITI_HOST, UBIQUITI_USER o UBIQUITI_PASSWORD en .env.",
+        }
+
+    requests, import_error = _load_requests()
+    if import_error:
+        logger.warning("NETWORK_TOOL | device=ubiquiti | command=https_status | status=missing_requests")
+        return {
+            "success": False,
+            "status": "missing_requests",
+            "device": "ubiquiti",
+            "checks": [],
+            "error": "La dependencia requests no está instalada.",
+        }
+
+    if not UBIQUITI_VERIFY_TLS:
+        try:
+            requests.packages.urllib3.disable_warnings(
+                requests.packages.urllib3.exceptions.InsecureRequestWarning
+            )
+        except Exception:
+            pass
+
+    base_url = _base_https_url(config)
+    endpoints = ["/status.cgi", "/api/status", "/status", "/"]
+    checks = []
+
+    for endpoint in endpoints:
+        url = f"{base_url}{endpoint}"
+        check_started_at = time.time()
+
+        try:
+            response = requests.get(
+                url,
+                auth=(config["username"], config["password"]),
+                timeout=UBIQUITI_HTTPS_TIMEOUT_SECONDS,
+                verify=UBIQUITI_VERIFY_TLS,
+            )
+            elapsed_ms = int((time.time() - check_started_at) * 1000)
+            content_type = response.headers.get("content-type", "")
+            text_sample = response.text[:400] if response.text else ""
+            is_json = "json" in content_type.lower()
+
+            parsed = None
+            if is_json:
+                try:
+                    parsed = response.json()
+                except Exception:
+                    parsed = None
+
+            checks.append(
+                {
+                    "endpoint": endpoint,
+                    "http_status": response.status_code,
+                    "elapsed_ms": elapsed_ms,
+                    "content_type": content_type,
+                    "json": parsed if isinstance(parsed, dict) else None,
+                    "sample": text_sample if not is_json else "",
+                }
+            )
+
+            if response.status_code in [200, 401, 403]:
+                duration_ms = int((time.time() - started_at) * 1000)
+                success = response.status_code == 200
+                status = "ok" if success else "auth_or_forbidden"
+
+                logger.info(
+                    f"NETWORK_TOOL | device=ubiquiti | host={config['host']} | "
+                    f"command=https_status:{endpoint} | http={response.status_code} | "
+                    f"status={status} | duration_ms={duration_ms}"
+                )
+
+                return {
+                    "success": success,
+                    "status": status,
+                    "device": "ubiquiti",
+                    "host": config["host"],
+                    "selected_endpoint": endpoint,
+                    "checks": checks,
+                    "duration_ms": duration_ms,
+                    "error": "" if success else "El equipo respondió por HTTPS, pero no autorizó la consulta de estado.",
+                }
+
+        except Exception as error:
+            checks.append(
+                {
+                    "endpoint": endpoint,
+                    "http_status": None,
+                    "elapsed_ms": int((time.time() - check_started_at) * 1000),
+                    "error": str(error),
+                }
+            )
+
+    duration_ms = int((time.time() - started_at) * 1000)
+    logger.warning(
+        f"NETWORK_TOOL | device=ubiquiti | host={config['host']} | "
+        f"command=https_status | status=failed | duration_ms={duration_ms}"
+    )
+    return {
+        "success": False,
+        "status": "failed",
+        "device": "ubiquiti",
+        "host": config["host"],
+        "checks": checks,
+        "duration_ms": duration_ms,
+        "error": "No se pudo obtener respuesta HTTPS válida de la antena Ubiquiti.",
+    }
+
+
 def parse_mikrotik_ping(output):
     text = str(output or "")
     parsed = {
@@ -274,6 +440,7 @@ def parse_mikrotik_ping(output):
 def parse_mikrotik_traceroute(output):
     text = str(output or "")
     hops = []
+    unique_hops = {}
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -282,17 +449,28 @@ def parse_mikrotik_traceroute(output):
 
         hop_match = re.match(r"^(\d+)\s+([0-9a-fA-F:.]+|\*)", stripped)
         if hop_match:
+            hop_number = int(hop_match.group(1))
             hops.append(
                 {
-                    "hop": int(hop_match.group(1)),
+                    "hop": hop_number,
                     "address": hop_match.group(2),
                     "raw": stripped,
                 }
             )
+            unique_hops.setdefault(
+                hop_number,
+                {
+                    "hop": hop_number,
+                    "address": hop_match.group(2),
+                    "raw": stripped,
+                },
+            )
 
     return {
         "hop_count": len(hops),
+        "unique_hop_count": len(unique_hops),
         "hops": hops[:12],
+        "unique_hops": [unique_hops[key] for key in sorted(unique_hops.keys())[:12]],
     }
 
 
@@ -300,10 +478,26 @@ def run_edge_diagnostics(target=None):
     target = validate_target(target)
     ping = mikrotik_ping(target, count=5)
     traceroute = mikrotik_traceroute(target)
+    ubiquiti = ubiquiti_https_status()
+    traceroute_status = traceroute.get("status")
+    traceroute_partial = traceroute_status == "command_timeout" and bool(
+        (traceroute.get("parsed") or {}).get("hop_count")
+    )
+    status = "ok"
+
+    if ping.get("success") and traceroute_partial:
+        status = "partial_success"
+    elif ping.get("success") and traceroute_status == "disabled":
+        status = "ping_only"
+    elif not (ping.get("success") and traceroute.get("success")):
+        status = "failed"
 
     return {
         "target": target,
         "ping": ping,
         "traceroute": traceroute,
-        "success": ping.get("success") and traceroute.get("success"),
+        "ubiquiti": ubiquiti,
+        "success": ping.get("success") and (traceroute.get("success") or traceroute_partial),
+        "status": status,
+        "traceroute_partial": traceroute_partial,
     }

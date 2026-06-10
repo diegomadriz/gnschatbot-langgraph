@@ -60,6 +60,13 @@ MIKROTIK_HOST=ip_del_router
 MIKROTIK_PORT=22
 MIKROTIK_USER=usuario_ssh
 MIKROTIK_PASSWORD=password_ssh
+ENABLE_UBIQUITI_CHECK=true
+UBIQUITI_HOST=ip_de_antena
+UBIQUITI_PORT=443
+UBIQUITI_USER=usuario_https
+UBIQUITI_PASSWORD=password_https
+UBIQUITI_HTTPS_TIMEOUT_SECONDS=8
+UBIQUITI_VERIFY_TLS=false
 ```
 
 ## Orquestación con LangGraph
@@ -85,6 +92,11 @@ comandos permitidos:
 - `/ping <target> count=5`
 - `/tool traceroute <target>`
 
+Además, el agente intenta una consulta HTTPS de solo lectura contra la antena
+Ubiquiti para validar alcance, autenticación y respuesta del equipo de radio.
+La consulta registra endpoint probado, código HTTP y latencia; no ejecuta
+cambios de configuración sobre la antena.
+
 Las credenciales del router se leen desde `.env`; no deben guardarse en el
 repositorio. Si la Mac local no tiene alcance al router, el flujo responde con
 un error controlado y deja evidencia en `logs/agent.log`. La prueba real debe
@@ -95,5 +107,6 @@ durante pruebas locales. En la VM puede activarse si se desea que una pérdida
 de paquetes o falla de diagnóstico dispare el ticket de soporte.
 
 Si el traceroute de RouterOS tarda demasiado, `ROUTER_COMMAND_TIMEOUT_SECONDS`
-limita la espera por comando. Para una demostración enfocada en el ping real
-del Mikrotik, puede usarse `ENABLE_TRACEROUTE=false`.
+limita la espera por comando. Cuando se alcanza ese límite, el agente conserva
+la salida parcial, registra el corte controlado en logs y responde sin bloquear
+la conversación.

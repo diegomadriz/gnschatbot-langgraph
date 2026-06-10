@@ -472,9 +472,40 @@ def response_node(state: SupportState) -> SupportState:
     elif intent == "edge_diagnosis":
         ping = diagnostics.get("ping") or {}
         parsed_ping = ping.get("parsed") or {}
+        traceroute = diagnostics.get("traceroute") or {}
+        parsed_traceroute = traceroute.get("parsed") or {}
+        ubiquiti = diagnostics.get("ubiquiti") or {}
         target = diagnostics.get("target") or os.getenv("NETWORK_DIAG_TARGET", "8.8.8.8")
         loss = parsed_ping.get("packet_loss_percent")
         avg = parsed_ping.get("avg_rtt_ms")
+        traceroute_status = traceroute.get("status")
+        hop_count = parsed_traceroute.get("unique_hop_count") or parsed_traceroute.get("hop_count")
+
+        if traceroute_status == "command_timeout" and hop_count:
+            route_text = (
+                f"Traceroute: activado; registró {hop_count} salto(s) y se cortó por timeout operativo "
+                "para no bloquear la conversación."
+            )
+        elif traceroute_status == "disabled":
+            route_text = "Traceroute: omitido por configuración; se ejecutó ping de borde."
+        elif traceroute.get("success"):
+            route_text = f"Traceroute: completado con {hop_count or 0} salto(s) registrados."
+        else:
+            route_text = "Traceroute: activado, pero no se pudo completar en esta ejecución."
+
+        if ubiquiti.get("status") == "disabled":
+            radio_text = "Antena Ubiquiti: consulta HTTPS omitida por configuración."
+        elif ubiquiti.get("success"):
+            radio_text = (
+                "Antena Ubiquiti: respondió correctamente por HTTPS "
+                f"({ubiquiti.get('selected_endpoint')})."
+            )
+        elif ubiquiti.get("status") == "auth_or_forbidden":
+            radio_text = "Antena Ubiquiti: respondió por HTTPS, pero no autorizó la consulta de estado."
+        elif ubiquiti:
+            radio_text = "Antena Ubiquiti: se intentó consulta HTTPS, pero no fue posible obtener estado."
+        else:
+            radio_text = "Antena Ubiquiti: sin resultado registrado."
 
         if ping.get("success"):
             loss_text = f"{loss}% de pérdida" if loss is not None else "pérdida no determinada"
@@ -482,7 +513,9 @@ def response_node(state: SupportState) -> SupportState:
             response = (
                 "He verificado tu conexión directamente desde nuestro router perimetral.\n\n"
                 f"Destino probado: {target}\n"
-                f"Resultado: {loss_text}, {avg_text}.\n\n"
+                f"Ping: {loss_text}, {avg_text}.\n"
+                f"{route_text}\n"
+                f"{radio_text}\n\n"
                 "Si tu servicio sigue fallando, escribe: no funcionó. Si ya quedó, escribe: sí funcionó."
             )
         else:
