@@ -54,6 +54,8 @@ USE_LANGGRAPH_AGENT=true
 AUTO_CREATE_TICKET_AFTER_EDGE_FAIL=false
 NETWORK_DIAG_TARGET=8.8.8.8
 SSH_TIMEOUT_SECONDS=15
+ROUTER_COMMAND_TIMEOUT_SECONDS=10
+ENABLE_TRACEROUTE=true
 MIKROTIK_HOST=ip_del_router
 MIKROTIK_PORT=22
 MIKROTIK_USER=usuario_ssh
@@ -91,3 +93,7 @@ validarse desde la VM en XenServer.
 `AUTO_CREATE_TICKET_AFTER_EDGE_FAIL=false` evita crear tickets automáticamente
 durante pruebas locales. En la VM puede activarse si se desea que una pérdida
 de paquetes o falla de diagnóstico dispare el ticket de soporte.
+
+Si el traceroute de RouterOS tarda demasiado, `ROUTER_COMMAND_TIMEOUT_SECONDS`
+limita la espera por comando. Para una demostración enfocada en el ping real
+del Mikrotik, puede usarse `ENABLE_TRACEROUTE=false`.
