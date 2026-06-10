@@ -541,11 +541,7 @@ def response_node(state: SupportState) -> SupportState:
                     interpretation.get("recommendation")
                     or "Continuaremos dando seguimiento si el problema persiste."
                 )
-            route_text = (
-                f"Tambien valide la ruta hacia Internet ({hop_count} salto(s) observados). "
-                if hop_count
-                else ""
-            )
+            route_text = "Tambien valide la ruta hacia Internet. " if hop_count else ""
             radio_text = (
                 "El equipo de radio tambien fue alcanzado por HTTPS. "
                 if ubiquiti.get("success") or ubiquiti.get("status") == "auth_or_forbidden"
