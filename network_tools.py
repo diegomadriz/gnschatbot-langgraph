@@ -130,7 +130,7 @@ def run_mikrotik_command(command, command_label, command_timeout=None):
             "status": "missing_paramiko",
             "command": command_label,
             "output": "",
-            "error": "La dependencia paramiko no está instalada.",
+            "error": "La dependencia paramiko no esta instalada.",
         }
 
     client = paramiko.SSHClient()
@@ -188,7 +188,7 @@ def run_mikrotik_command(command, command_label, command_timeout=None):
                     "status": "command_timeout",
                     "command": command_label,
                     "output": "".join(output_chunks),
-                    "error": f"El comando excedió {command_timeout} segundos.",
+                    "error": f"El comando excedio {command_timeout} segundos.",
                     "duration_ms": duration_ms,
                 }
 
@@ -299,7 +299,7 @@ def ubiquiti_https_status():
             "status": "missing_requests",
             "device": "ubiquiti",
             "checks": [],
-            "error": "La dependencia requests no está instalada.",
+            "error": "La dependencia requests no esta instalada.",
         }
 
     if not UBIQUITI_VERIFY_TLS:
@@ -367,7 +367,7 @@ def ubiquiti_https_status():
                     "selected_endpoint": endpoint,
                     "checks": checks,
                     "duration_ms": duration_ms,
-                    "error": "" if success else "El equipo respondió por HTTPS, pero no autorizó la consulta de estado.",
+                    "error": "" if success else "El equipo respondio por HTTPS, pero no autorizo la consulta de estado.",
                 }
 
         except Exception as error:
@@ -392,7 +392,7 @@ def ubiquiti_https_status():
         "host": config["host"],
         "checks": checks,
         "duration_ms": duration_ms,
-        "error": "No se pudo obtener respuesta HTTPS válida de la antena Ubiquiti.",
+        "error": "No se pudo obtener respuesta HTTPS valida de la antena Ubiquiti.",
     }
 
 
@@ -474,6 +474,81 @@ def parse_mikrotik_traceroute(output):
     }
 
 
+def interpret_edge_diagnostics(ping, traceroute, ubiquiti):
+    parsed_ping = ping.get("parsed") or {}
+    parsed_traceroute = traceroute.get("parsed") or {}
+    packet_loss = parsed_ping.get("packet_loss_percent")
+    avg_rtt = parsed_ping.get("avg_rtt_ms")
+    sent = parsed_ping.get("sent")
+    received = parsed_ping.get("received")
+    hop_count = parsed_traceroute.get("unique_hop_count") or parsed_traceroute.get("hop_count")
+    traceroute_status = traceroute.get("status")
+    ubiquiti_status = ubiquiti.get("status")
+
+    if not ping.get("success"):
+        status = "not_verified"
+        severity = "high"
+        summary = "No pude confirmar el estado WAN desde el router perimetral."
+        recommendation = "Se recomienda revision tecnica porque la prueba principal no se completo."
+    elif packet_loss == 0 and avg_rtt is not None and avg_rtt <= 50:
+        status = "optimal"
+        severity = "low"
+        summary = (
+            "El enlace WAN esta operando de manera optima desde el router perimetral."
+        )
+        recommendation = (
+            "Si el usuario sigue percibiendo lentitud, conviene revisar red local, WiFi o equipo final."
+        )
+    elif packet_loss is not None and packet_loss > 0:
+        status = "packet_loss_detected"
+        severity = "high"
+        summary = "La prueba detecto perdida de paquetes en el enlace probado."
+        recommendation = "Se recomienda escalar a soporte tecnico para revisar la ruta WAN."
+    elif avg_rtt is not None and avg_rtt > 100:
+        status = "high_latency"
+        severity = "medium"
+        summary = "La prueba no muestra perdida, pero si latencia elevada."
+        recommendation = "Se recomienda monitorear y revisar saturacion o ruta WAN."
+    else:
+        status = "inconclusive"
+        severity = "medium"
+        summary = "La prueba fue recibida, pero no contiene metricas suficientes para concluir."
+        recommendation = "Se recomienda revisar la salida cruda en logs."
+
+    if traceroute_status == "command_timeout" and hop_count:
+        route_summary = (
+            f"Traceroute activo con {hop_count} salto(s) unicos registrados antes del corte controlado."
+        )
+    elif traceroute.get("success"):
+        route_summary = f"Traceroute completado con {hop_count or 0} salto(s) registrados."
+    elif traceroute_status == "disabled":
+        route_summary = "Traceroute omitido por configuracion."
+    else:
+        route_summary = "Traceroute activado sin resultado concluyente."
+
+    if ubiquiti.get("success"):
+        radio_summary = "La antena Ubiquiti respondio correctamente por HTTPS."
+    elif ubiquiti_status == "auth_or_forbidden":
+        radio_summary = "La antena Ubiquiti fue alcanzable por HTTPS, pero rechazo la consulta de estado."
+    elif ubiquiti_status == "disabled":
+        radio_summary = "La consulta HTTPS a Ubiquiti fue omitida por configuracion."
+    else:
+        radio_summary = "No se pudo confirmar estado HTTPS de la antena Ubiquiti."
+
+    return {
+        "status": status,
+        "severity": severity,
+        "summary": summary,
+        "recommendation": recommendation,
+        "packet_loss_percent": packet_loss,
+        "avg_rtt_ms": avg_rtt,
+        "sent": sent,
+        "received": received,
+        "route_summary": route_summary,
+        "radio_summary": radio_summary,
+    }
+
+
 def run_edge_diagnostics(target=None):
     target = validate_target(target)
     ping = mikrotik_ping(target, count=5)
@@ -492,6 +567,20 @@ def run_edge_diagnostics(target=None):
     elif not (ping.get("success") and traceroute.get("success")):
         status = "failed"
 
+    interpretation = interpret_edge_diagnostics(ping, traceroute, ubiquiti)
+
+    logger.info(
+        "NETWORK_DIAGNOSIS_PARSED | "
+        f"target={target} | status={interpretation.get('status')} | "
+        f"severity={interpretation.get('severity')} | "
+        f"loss={interpretation.get('packet_loss_percent')} | "
+        f"avg_rtt={interpretation.get('avg_rtt_ms')} | "
+        f"sent={interpretation.get('sent')} | received={interpretation.get('received')} | "
+        f"traceroute_status={traceroute.get('status')} | "
+        f"unique_hops={(traceroute.get('parsed') or {}).get('unique_hop_count')} | "
+        f"ubiquiti_status={ubiquiti.get('status')}"
+    )
+
     return {
         "target": target,
         "ping": ping,
@@ -500,4 +589,5 @@ def run_edge_diagnostics(target=None):
         "success": ping.get("success") and (traceroute.get("success") or traceroute_partial),
         "status": status,
         "traceroute_partial": traceroute_partial,
+        "interpretation": interpretation,
     }

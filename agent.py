@@ -32,10 +32,10 @@ def classify_issue(category, description):
         "no tener servicio",
         "luz roja",
         "fibra",
-        "falta de señal",
-        "sin éxito",
+        "falta de senal",
         "sin exito",
-        "cobertura crítica",
+        "sin exito",
+        "cobertura critica",
         "cobertura critica",
     ]
 
@@ -48,7 +48,7 @@ def classify_issue(category, description):
         "ping",
         "reinicio",
         "router",
-        "módem",
+        "modem",
         "modem",
     ]
 
@@ -75,7 +75,7 @@ def find_ticket_by_number(tickets, ticket_number):
 
 
 def generate_diagnosis(ticket):
-    category = ticket.get("category", "Sin categoría")
+    category = ticket.get("category", "Sin categoria")
     description = ticket.get("description", "")
     status = ticket.get("status", "Sin estado")
     ticket_number = ticket.get("ticket_number", "Sin folio")
@@ -95,7 +95,7 @@ def generate_diagnosis(ticket):
             "message": "Tu ticket aparece como cerrado. El caso ya fue atendido previamente.",
             "recommended_steps": [
                 "Validar si el servicio se encuentra funcionando actualmente.",
-                "Si el problema continúa, generar una nueva solicitud de soporte."
+                "Si el problema continua, generar una nueva solicitud de soporte."
             ]
         }
 
@@ -105,13 +105,13 @@ def generate_diagnosis(ticket):
             "status": status,
             "category": category,
             "decision": decision,
-            "message": "Detecté un posible problema de velocidad, lentitud o intermitencia. Iniciaremos diagnóstico remoto.",
+            "message": "Detecte un posible problema de velocidad, lentitud o intermitencia. Iniciaremos diagnostico remoto.",
             "recommended_steps": [
-                "Verificar que el módem o router esté encendido.",
+                "Verificar que el modem o router este encendido.",
                 "Reiniciar el equipo durante 30 segundos.",
-                "Esperar a que las luces del módem estabilicen.",
+                "Esperar a que las luces del modem estabilicen.",
                 "Ejecutar una prueba de ping real desde la VM del agente.",
-                "Si el problema persiste, escalar a soporte técnico."
+                "Si el problema persiste, escalar a soporte tecnico."
             ]
         }
 
@@ -121,11 +121,11 @@ def generate_diagnosis(ticket):
             "status": status,
             "category": category,
             "decision": decision,
-            "message": "El problema parece requerir atención técnica. Se recomienda escalar el caso a un ingeniero de soporte.",
+            "message": "El problema parece requerir atencion tecnica. Se recomienda escalar el caso a un ingeniero de soporte.",
             "recommended_steps": [
-                "No repetir reinicios si ya se intentaron sin éxito.",
+                "No repetir reinicios si ya se intentaron sin exito.",
                 "Registrar evidencia del problema.",
-                "Enviar el caso a soporte técnico humano."
+                "Enviar el caso a soporte tecnico humano."
             ]
         }
 
@@ -134,27 +134,27 @@ def generate_diagnosis(ticket):
         "status": status,
         "category": category,
         "decision": decision,
-        "message": "Tu caso será canalizado a soporte para revisión.",
+        "message": "Tu caso sera canalizado a soporte para revision.",
         "recommended_steps": [
             "Validar datos del servicio.",
             "Canalizar el caso a un agente humano de soporte.",
-            "Dar seguimiento según el tipo de solicitud."
+            "Dar seguimiento segun el tipo de solicitud."
         ]
     }
 def build_escalation_payload(ticket, diagnosis):
     """
-    Estructura JSON limpia para registrar la escalación como comentario técnico.
+    Estructura JSON limpia para registrar la escalacion como comentario tecnico.
     No incluye datos personales.
     """
     return {
         "idTicket": ticket.get("idTicket"),
         "comment": (
-            "Escalación automática generada por agente IA. "
+            "Escalacion automatica generada por agente IA. "
             f"Ticket: {ticket.get('ticket_number')}. "
-            f"Categoría: {ticket.get('category')}. "
-            f"Decisión: {diagnosis.get('decision')}. "
+            f"Categoria: {ticket.get('category')}. "
+            f"Decision: {diagnosis.get('decision')}. "
             f"Motivo: {diagnosis.get('message')} "
-            "Se recomienda asignar este caso a un ingeniero de soporte técnico humano."
+            "Se recomienda asignar este caso a un ingeniero de soporte tecnico humano."
         )
     }
 
@@ -175,7 +175,7 @@ def is_valid_ip(value):
 
 def get_target_ip_from_ticket(ticket):
     """
-    Busca automáticamente una IP técnica asociada al ticket.
+    Busca automaticamente una IP tecnica asociada al ticket.
     Si la API no proporciona IP del cliente o del equipo, regresa None.
     """
     possible_fields = [
@@ -235,7 +235,7 @@ def run_ping_test(host="8.8.8.8", count=4):
         }
 def classify_free_text_problem(description):
     """
-    Clasifica un problema cuando el cliente no tiene número de ticket.
+    Clasifica un problema cuando el cliente no tiene numero de ticket.
     Usa lenguaje escrito libremente por el cliente.
     """
     description = str(description).lower()
@@ -249,15 +249,15 @@ def classify_free_text_problem(description):
         "rojo",
         "no prende",
         "no funciona",
-        "sin señal",
-        "falta de señal",
+        "sin senal",
+        "falta de senal",
         "fibra",
         "cable cortado",
         "poste",
         "corte",
-        "ya reinicié",
         "ya reinicie",
-        "reinicié y sigue",
+        "ya reinicie",
+        "reinicie y sigue",
         "reinicie y sigue"
     ]
 
@@ -280,14 +280,14 @@ def classify_free_text_problem(description):
     support_keywords = [
         "cambiar plan",
         "cambio de plan",
-        "contraseña",
+        "contrasena",
         "password",
         "pagar",
         "pago",
         "cobranza",
         "factura",
         "cancelar",
-        "cancelación",
+        "cancelacion",
         "domicilio",
         "cambio de domicilio"
     ]
@@ -295,10 +295,10 @@ def classify_free_text_problem(description):
     if any(word in description for word in escalation_keywords):
         return {
             "decision": "ESCALAR_TECNICO",
-            "category": "Falla crítica reportada por cliente",
+            "category": "Falla critica reportada por cliente",
             "message": (
-                "Por lo que describes, tu servicio podría requerir revisión técnica. "
-                "Evitaré pedirte que repitas pasos básicos si ya hay señales de falta de señal o falla física."
+                "Por lo que describes, tu servicio podria requerir revision tecnica. "
+                "Evitare pedirte que repitas pasos basicos si ya hay senales de falta de senal o falla fisica."
             )
         }
 
@@ -307,8 +307,8 @@ def classify_free_text_problem(description):
             "decision": "DIAGNOSTICO_REMOTO",
             "category": "Posible lentitud o intermitencia",
             "message": (
-                "Parece que tu servicio está lento o intermitente. "
-                "Vamos a intentar una revisión básica antes de enviarlo con un técnico."
+                "Parece que tu servicio esta lento o intermitente. "
+                "Vamos a intentar una revision basica antes de enviarlo con un tecnico."
             )
         }
 
@@ -317,24 +317,24 @@ def classify_free_text_problem(description):
             "decision": "REVISION_SOPORTE",
             "category": "Solicitud administrativa o de soporte",
             "message": (
-                "Esto parece una solicitud de atención o cambio administrativo. "
+                "Esto parece una solicitud de atencion o cambio administrativo. "
                 "Lo mejor es canalizarlo con soporte para que revisen tu cuenta."
             )
         }
 
     return {
         "decision": "REVISION_SOPORTE",
-        "category": "Caso no clasificado automáticamente",
+        "category": "Caso no clasificado automaticamente",
         "message": (
-            "No tengo suficiente información para clasificar el problema con seguridad. "
-            "Te canalizaré a soporte para que revisen tu caso."
+            "No tengo suficiente informacion para clasificar el problema con seguridad. "
+            "Te canalizare a soporte para que revisen tu caso."
         )
     }
 
 
 def build_ticketless_escalation_payload(description, classification):
     """
-    Crea un comentario general para evidenciar la intención de escalamiento cuando no hay folio.
+    Crea un comentario general para evidenciar la intencion de escalamiento cuando no hay folio.
     Nota: la API de comentarios requiere idTicket, por eso no se puede hacer POST real
     sin un ticket existente.
     """

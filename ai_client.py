@@ -43,7 +43,7 @@ def sanitize_text_for_ai(text):
         text,
     )
 
-    # Teléfonos largos
+    # Telefonos largos
     text = re.sub(
         r"\b\d{10,}\b",
         "[TELEFONO_REMOVIDO]",
@@ -58,7 +58,7 @@ def sanitize_text_for_ai(text):
         flags=re.IGNORECASE,
     )
 
-    # IDs explícitos
+    # IDs explicitos
     text = re.sub(
         r"\b(idCustomer|idCustomerPackage|idTicket)\s*[:=]\s*\d+\b",
         r"\1=[ID_REMOVIDO]",
@@ -78,8 +78,8 @@ def sanitize_text_for_ai(text):
 
 def sanitize_context_for_ai(context):
     """
-    Reduce el contexto a información no sensible.
-    No manda nombres, teléfonos, correos, saldos, paquetes ni IDs internos.
+    Reduce el contexto a informacion no sensible.
+    No manda nombres, telefonos, correos, saldos, paquetes ni IDs internos.
     """
     context = context or {}
 
@@ -120,13 +120,13 @@ def looks_bad_ai_response(text):
         "lo siento, pero no puedo",
         "no estoy seguro",
         "no puedo acceder",
-        "por correo electrónico",
+        "por correo electronico",
         "he revisado el estado",
         "he revisado",
-        "las luces están estables",
+        "las luces estan estables",
         "confirma si se ha registrado",
         "revisa la nota",
-        "contactes al equipo técnico",
+        "contactes al equipo tecnico",
     ]
 
     return any(phrase in lowered for phrase in bad_phrases)
@@ -134,11 +134,11 @@ def looks_bad_ai_response(text):
 
 def generate_customer_response(base_message, context=None):
     """
-    Usa Ollama solo como capa de redacción.
-    La decisión técnica ya fue tomada por reglas/API/ping/POST.
+    Usa Ollama solo como capa de redaccion.
+    La decision tecnica ya fue tomada por reglas/API/ping/POST.
 
     Importante:
-    - No se envían datos sensibles.
+    - No se envian datos sensibles.
     - Si la respuesta generada no es segura, se regresa el mensaje base.
     """
     safe_base_message = sanitize_text_for_ai(base_message)
@@ -147,29 +147,29 @@ def generate_customer_response(base_message, context=None):
     prompt = f"""
 Eres un asistente virtual de soporte de internet para clientes de GNS.
 
-Tu tarea es REESCRIBIR el mensaje técnico en una respuesta para cliente.
+Tu tarea es REESCRIBIR el mensaje tecnico en una respuesta para cliente.
 
 Reglas obligatorias:
-- Responde solo en español.
-- Sé amable, claro y breve.
+- Responde solo en espanol.
+- Se amable, claro y breve.
 - Estilo WhatsApp.
 - No inventes datos.
-- No cambies la decisión técnica.
+- No cambies la decision tecnica.
 - No elimines confirmaciones importantes.
-- No afirmes que revisaste el módem, las luces, la red o el servicio si esa información no viene en el mensaje técnico.
+- No afirmes que revisaste el modem, las luces, la red o el servicio si esa informacion no viene en el mensaje tecnico.
 - Usa frases como "por favor revisa" o "te sugiero revisar", no "he revisado".
 - No menciones datos personales.
 - No menciones saldos.
-- No menciones teléfonos, correos, direcciones ni nombres completos.
+- No menciones telefonos, correos, direcciones ni nombres completos.
 - No menciones IDs internos.
 - No pidas enviar correo.
 - No menciones que eres un modelo de IA.
-- Máximo 80 palabras.
+- Maximo 80 palabras.
 
-Mensaje técnico original sanitizado:
+Mensaje tecnico original sanitizado:
 {safe_base_message}
 
-Contexto técnico sanitizado:
+Contexto tecnico sanitizado:
 {safe_context}
 
 Respuesta final para cliente:

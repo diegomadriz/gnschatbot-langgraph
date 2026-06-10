@@ -35,8 +35,8 @@ CRITICAL_KEYWORDS = [
     "no tengo internet",
     "sin servicio",
     "no tengo servicio",
-    "sin señal",
-    "falta de señal",
+    "sin senal",
+    "falta de senal",
     "poste",
     "corte total",
 ]
@@ -60,8 +60,8 @@ ADMIN_KEYWORDS = [
     "cambiar plan",
     "cambio de plan",
     "cancelar",
-    "cancelación",
-    "contraseña",
+    "cancelacion",
+    "contrasena",
     "password",
     "domicilio",
     "administrativo",
@@ -141,7 +141,7 @@ def active_tickets(tickets):
 
 def summarize_tickets(tickets, limit=5):
     if not tickets:
-        return "No encontré tickets activos."
+        return "No encontre tickets activos."
 
     lines = []
     for ticket in tickets[:limit]:
@@ -150,7 +150,7 @@ def summarize_tickets(tickets, limit=5):
         )
 
     if len(tickets) > limit:
-        lines.append(f"- Y {len(tickets) - limit} ticket(s) más.")
+        lines.append(f"- Y {len(tickets) - limit} ticket(s) mas.")
 
     return "\n".join(lines)
 
@@ -160,7 +160,7 @@ def summarize_service(services):
         services = [services]
 
     if not isinstance(services, list) or not services:
-        return "No encontré servicio activo."
+        return "No encontre servicio activo."
 
     service = services[0]
     package = service.get("package") or "paquete no disponible"
@@ -214,7 +214,7 @@ def create_support_ticket(id_customer, problem_type, problem_text):
     elif problem_type == "administrative":
         id_category = select_category_id(
             categories,
-            ["soporte general", "cobranza", "cambio de plan", "cancelación"],
+            ["soporte general", "cobranza", "cambio de plan", "cancelacion"],
             fallback_id=1,
         )
     elif problem_type == "remote":
@@ -335,7 +335,7 @@ def classify_intent_node(state: SupportState) -> SupportState:
     elif not state.get("authenticated"):
         intent = "requires_customer_validation"
         problem_type = "validation"
-    elif "volver" in text or "menú" in text or "menu" in text:
+    elif "volver" in text or "menu" in text or "menu" in text:
         intent = "main_menu_reset"
         problem_type = "navigation"
     elif "tickets" in text or "ticket" in text:
@@ -344,10 +344,10 @@ def classify_intent_node(state: SupportState) -> SupportState:
     elif "saldo" in text or "pago" in text:
         intent = "show_balance"
         problem_type = "query"
-    elif "sí funcionó" in text or "si funciono" in text or "ya funcionó" in text or "ya funciona" in text:
+    elif "si funciono" in text or "si funciono" in text or "ya funciono" in text or "ya funciona" in text:
         intent = "resolved_after_guidance"
         problem_type = "resolution"
-    elif "no funcionó" in text or "no funciono" in text or "sigue igual" in text or "no sirve" in text:
+    elif "no funciono" in text or "no funciono" in text or "sigue igual" in text or "no sirve" in text:
         intent = "failed_guidance"
         problem_type = "critical"
     elif any(keyword in text for keyword in CRITICAL_KEYWORDS):
@@ -386,7 +386,7 @@ def local_resolution_node(state: SupportState) -> SupportState:
         "resolved_after_guidance",
         state.get("message", ""),
         customer=state.get("customer"),
-        extra={"resolution": "Cliente indica que las indicaciones básicas funcionaron."},
+        extra={"resolution": "Cliente indica que las indicaciones basicas funcionaron."},
     )
     return {**state, "local_modification": record}
 
@@ -412,13 +412,13 @@ def create_ticket_node(state: SupportState) -> SupportState:
         return state
 
     if state.get("intent") == "failed_guidance":
-        problem = "Cliente indica que el diagnóstico básico no funcionó. Requiere revisión técnica."
+        problem = "Cliente indica que el diagnostico basico no funciono. Requiere revision tecnica."
     elif state.get("intent") == "administrative_ticket":
         problem = f"Solicitud administrativa del cliente: {state.get('message')}"
     elif state.get("intent") == "edge_diagnosis":
         problem = (
             f"Reporte de conectividad del cliente: {state.get('message')}. "
-            "El agente ejecutó diagnóstico de borde y dejó evidencia en logs."
+            "El agente ejecuto diagnostico de borde y dejo evidencia en logs."
         )
     else:
         problem = f"Solicitud del cliente: {state.get('message')}"
@@ -436,7 +436,7 @@ def response_node(state: SupportState) -> SupportState:
 
     if intent == "customer_validation":
         if not state.get("authenticated"):
-            response = "No encontré ese cliente. Por favor verifica el ID e intenta de nuevo."
+            response = "No encontre ese cliente. Por favor verifica el ID e intenta de nuevo."
         else:
             response = (
                 "Cliente validado.\n\n"
@@ -445,9 +445,9 @@ def response_node(state: SupportState) -> SupportState:
                 f"Tickets activos:\n{summarize_tickets(context.get('active_tickets'))}"
             )
     elif not state.get("authenticated"):
-        response = "Antes de continuar necesito validar tu cliente.\n\nEscribe tu ID así:\ncliente 170"
+        response = "Antes de continuar necesito validar tu cliente.\n\nEscribe tu ID asi:\ncliente 170"
     elif intent == "main_menu_reset":
-        response = "Volví al menú principal.\n\nPara iniciar de nuevo, escribe tu ID de cliente."
+        response = "Volvi al menu principal.\n\nPara iniciar de nuevo, escribe tu ID de cliente."
     elif intent == "show_active_tickets":
         response = f"Tus tickets activos son:\n{summarize_tickets(context.get('active_tickets'))}"
     elif intent == "show_balance":
@@ -455,26 +455,27 @@ def response_node(state: SupportState) -> SupportState:
         payment_value = balance.get("payment_status") if isinstance(balance, dict) else None
         response = (
             f"Tu estado de pago aparece como: {payment_status_label(payment_value)}.\n\n"
-            "La API no expone un monto exacto de saldo en este ambiente, así que usamos payment_status como referencia."
+            "La API no expone un monto exacto de saldo en este ambiente, asi que usamos payment_status como referencia."
         )
     elif intent == "resolved_after_guidance":
         response = (
-            "Perfecto. Registré que el problema quedó solucionado después de las indicaciones básicas.\n\n"
-            "No modifiqué el dataset original; dejé evidencia local para seguimiento."
+            "Perfecto. Registre que el problema quedo solucionado despues de las indicaciones basicas.\n\n"
+            "No modifique el dataset original; deje evidencia local para seguimiento."
         )
     elif intent == "failed_guidance":
         response = (
-            "Entiendo. Como no funcionó la revisión básica, creé un ticket para soporte técnico.\n\n"
-            "Un integrante del equipo deberá revisar el caso."
+            "Entiendo. Como no funciono la revision basica, cree un ticket para soporte tecnico.\n\n"
+            "Un integrante del equipo debera revisar el caso."
         )
     elif intent == "administrative_ticket":
-        response = "Listo. Creé un ticket para que soporte revise tu solicitud administrativa."
+        response = "Listo. Cree un ticket para que soporte revise tu solicitud administrativa."
     elif intent == "edge_diagnosis":
         ping = diagnostics.get("ping") or {}
         parsed_ping = ping.get("parsed") or {}
         traceroute = diagnostics.get("traceroute") or {}
         parsed_traceroute = traceroute.get("parsed") or {}
         ubiquiti = diagnostics.get("ubiquiti") or {}
+        interpretation = diagnostics.get("interpretation") or {}
         target = diagnostics.get("target") or os.getenv("NETWORK_DIAG_TARGET", "8.8.8.8")
         loss = parsed_ping.get("packet_loss_percent")
         avg = parsed_ping.get("avg_rtt_ms")
@@ -483,49 +484,51 @@ def response_node(state: SupportState) -> SupportState:
 
         if traceroute_status == "command_timeout" and hop_count:
             route_text = (
-                f"Traceroute: activado; registró {hop_count} salto(s) y se cortó por timeout operativo "
-                "para no bloquear la conversación."
+                f"Traceroute: activado; registro {hop_count} salto(s) y se corto por timeout operativo "
+                "para no bloquear la conversacion."
             )
         elif traceroute_status == "disabled":
-            route_text = "Traceroute: omitido por configuración; se ejecutó ping de borde."
+            route_text = "Traceroute: omitido por configuracion; se ejecuto ping de borde."
         elif traceroute.get("success"):
             route_text = f"Traceroute: completado con {hop_count or 0} salto(s) registrados."
         else:
-            route_text = "Traceroute: activado, pero no se pudo completar en esta ejecución."
+            route_text = "Traceroute: activado, pero no se pudo completar en esta ejecucion."
 
         if ubiquiti.get("status") == "disabled":
-            radio_text = "Antena Ubiquiti: consulta HTTPS omitida por configuración."
+            radio_text = "Antena Ubiquiti: consulta HTTPS omitida por configuracion."
         elif ubiquiti.get("success"):
             radio_text = (
-                "Antena Ubiquiti: respondió correctamente por HTTPS "
+                "Antena Ubiquiti: respondio correctamente por HTTPS "
                 f"({ubiquiti.get('selected_endpoint')})."
             )
         elif ubiquiti.get("status") == "auth_or_forbidden":
-            radio_text = "Antena Ubiquiti: respondió por HTTPS, pero no autorizó la consulta de estado."
+            radio_text = "Antena Ubiquiti: respondio por HTTPS, pero no autorizo la consulta de estado."
         elif ubiquiti:
-            radio_text = "Antena Ubiquiti: se intentó consulta HTTPS, pero no fue posible obtener estado."
+            radio_text = "Antena Ubiquiti: se intento consulta HTTPS, pero no fue posible obtener estado."
         else:
             radio_text = "Antena Ubiquiti: sin resultado registrado."
 
         if ping.get("success"):
-            loss_text = f"{loss}% de pérdida" if loss is not None else "pérdida no determinada"
+            loss_text = f"{loss}% de perdida" if loss is not None else "perdida no determinada"
             avg_text = f"{avg} ms de latencia promedio" if avg is not None else "latencia promedio no determinada"
             response = (
-                "He verificado tu conexión directamente desde nuestro router perimetral.\n\n"
+                "He verificado tu conexion directamente desde nuestro router perimetral.\n\n"
                 f"Destino probado: {target}\n"
                 f"Ping: {loss_text}, {avg_text}.\n"
                 f"{route_text}\n"
                 f"{radio_text}\n\n"
-                "Si tu servicio sigue fallando, escribe: no funcionó. Si ya quedó, escribe: sí funcionó."
+                f"Conclusion: {interpretation.get('summary') or 'Diagnostico de borde registrado.'}\n"
+                f"Siguiente paso: {interpretation.get('recommendation') or 'Continuar con seguimiento de soporte.'}\n\n"
+                "Si tu servicio sigue fallando, escribe: no funciono. Si ya quedo, escribe: si funciono."
             )
         else:
             response = (
-                "Intenté verificar tu conexión desde el router perimetral, pero la prueba automática no pudo completarse.\n\n"
-                "Dejé evidencia técnica en el registro del agente. Si el problema continúa, escribe: no funcionó."
+                "Intente verificar tu conexion desde el router perimetral, pero la prueba automatica no pudo completarse.\n\n"
+                "Deje evidencia tecnica en el registro del agente. Si el problema continua, escribe: no funciono."
             )
     else:
         response = (
-            "Puedo ayudarte con soporte, pero necesito un poco más de contexto.\n\n"
+            "Puedo ayudarte con soporte, pero necesito un poco mas de contexto.\n\n"
             "Describe si es falla de internet, luz roja, cable cortado, lentitud, pago o cambio de plan."
         )
         response = generate_customer_response(
@@ -550,7 +553,7 @@ def response_node(state: SupportState) -> SupportState:
         "edge_diagnostics": diagnostics,
         "ticket_creation": ticket_creation,
         "local_modification": state.get("local_modification"),
-        "next_options": ["sí funcionó", "no funcionó", "volver al menú"],
+        "next_options": ["si funciono", "no funciono", "volver al menu"],
     }
 
     return {**state, "response": response, "technical_detail": technical_detail}

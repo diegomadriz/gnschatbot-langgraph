@@ -14,7 +14,7 @@ TIMEOUT_SECONDS = 20
 
 def _request(method, endpoint, payload=None, params=None):
     """
-    Función central para consumir la API GNS Sandbox con Basic Auth.
+    Funcion central para consumir la API GNS Sandbox con Basic Auth.
     """
     url = f"{API_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
 
@@ -50,7 +50,7 @@ def _request(method, endpoint, payload=None, params=None):
 def _as_single_item(data, key_name, key_value):
     """
     Algunas rutas regresan una lista con un solo elemento.
-    Esta función devuelve el elemento correcto como diccionario.
+    Esta funcion devuelve el elemento correcto como diccionario.
     """
     if isinstance(data, dict):
         return data
@@ -97,14 +97,14 @@ def get_tickets_by_customer(id_customer):
 
 def get_categories():
     """
-    Obtiene categorías disponibles.
+    Obtiene categorias disponibles.
     """
     return _request("GET", "categories")
 
 
 def get_comments():
     """
-    Obtiene comentarios, si el endpoint está disponible.
+    Obtiene comentarios, si el endpoint esta disponible.
     """
     return _request("GET", "comments")
 
@@ -191,7 +191,7 @@ def get_customer_balance(id_customer):
 def get_customer_services(id_customer):
     """
     Intenta obtener servicios/paquetes del cliente.
-    Si no existe endpoint real, usa información derivada de tickets.
+    Si no existe endpoint real, usa informacion derivada de tickets.
     """
     possible_endpoints = [
         f"customer-packages/{id_customer}",
@@ -249,7 +249,7 @@ def get_first_active_customer_package(id_customer):
     Obtiene un idCustomerPackage usable para crear tickets.
     Prioridad:
     1. Servicios del cliente.
-    2. Tickets históricos del cliente.
+    2. Tickets historicos del cliente.
     """
     services, services_status = get_customer_services(id_customer)
 
@@ -289,7 +289,7 @@ def get_first_active_customer_package(id_customer):
 def post_escalation(payload):
     """
     Registra comentario/escalamiento en ticket existente.
-    Endpoint usado previamente con éxito:
+    Endpoint usado previamente con exito:
     POST /comments
     """
     possible_endpoints = [
@@ -329,7 +329,7 @@ def create_ticket(payload):
     Endpoint oficial:
     POST /tickets
 
-    Campos requeridos según documentación:
+    Campos requeridos segun documentacion:
     - idCategory
     - idCustomerPackage
     - problem
@@ -352,13 +352,13 @@ def create_ticket_for_customer(
 ):
     """
     Crea ticket nuevo para cliente validado.
-    Busca idCustomerPackage automáticamente.
+    Busca idCustomerPackage automaticamente.
     """
     id_customer_package = get_first_active_customer_package(id_customer)
 
     if not id_customer_package:
         return {
-            "error": "No se encontró idCustomerPackage para crear ticket",
+            "error": "No se encontro idCustomerPackage para crear ticket",
             "idCustomer": id_customer,
         }, 400
 
@@ -382,7 +382,7 @@ def create_ticket_for_customer(
 
 def select_category_id(categories, preferred_names, fallback_id=1):
     """
-    Busca idCategory por nombre de categoría.
+    Busca idCategory por nombre de categoria.
     """
     if not isinstance(categories, list):
         return fallback_id

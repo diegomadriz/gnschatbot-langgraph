@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,23 @@ from support_graph import run_support_agent
 
 load_dotenv()
 app = Flask(__name__)
+
+
+def ascii_json(value):
+    if isinstance(value, str):
+        return (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+
+    if isinstance(value, list):
+        return [ascii_json(item) for item in value]
+
+    if isinstance(value, dict):
+        return {key: ascii_json(item) for key, item in value.items()}
+
+    return value
 
 
 HTML = """
@@ -174,21 +192,21 @@ HTML = """
             <div class="avatar">G</div>
             <div class="header-text">
                 <h1>Soporte GNS</h1>
-                <p>Agente virtual en línea</p>
+                <p>Agente virtual en linea</p>
             </div>
         </div>
 
         <div class="chat">
             {% if not show_menu %}
                 <div class="bubble bot">
-Hola 👋 Soy el asistente virtual de GNS.
+Hola  Soy el asistente virtual de GNS.
 
 Para comenzar, necesito validar tu cliente.
-Escribe tu ID así:
+Escribe tu ID asi:
 
 cliente 170
 
-Después de validarte podré mostrar tu estado de pago, servicio, tickets activos y menú de soporte.
+Despues de validarte podre mostrar tu estado de pago, servicio, tickets activos y menu de soporte.
                 </div>
             {% endif %}
 
@@ -207,13 +225,13 @@ Después de validarte podré mostrar tu estado de pago, servicio, tickets activo
                 <div class="quick-buttons">
                     <button type="button" onclick="setQuick('ver tickets activos')">Tickets activos</button>
                     <button type="button" onclick="setQuick('consultar saldo')">Estado de pago</button>
-                    <button type="button" onclick="setQuick('tengo luz roja en el módem y no tengo internet')">Luz roja</button>
+                    <button type="button" onclick="setQuick('tengo luz roja en el modem y no tengo internet')">Luz roja</button>
                     <button type="button" onclick="setQuick('fibra o cable cortado')">Fibra/cable cortado</button>
-                    <button type="button" onclick="setQuick('mi internet está lento')">Internet lento</button>
+                    <button type="button" onclick="setQuick('mi internet esta lento')">Internet lento</button>
                     <button type="button" onclick="setQuick('quiero cambiar mi plan')">Administrativo</button>
-                    <button type="button" onclick="setQuick('no funcionó')">No funcionó</button>
-                    <button type="button" onclick="setQuick('sí funcionó')">Sí funcionó</button>
-                    <button type="button" class="menu-button" onclick="window.location.href='/'">Volver al menú principal</button>
+                    <button type="button" onclick="setQuick('no funciono')">No funciono</button>
+                    <button type="button" onclick="setQuick('si funciono')">Si funciono</button>
+                    <button type="button" class="menu-button" onclick="window.location.href='/'">Volver al menu principal</button>
                 </div>
             {% else %}
                 <div class="quick-buttons">
@@ -223,7 +241,7 @@ Después de validarte podré mostrar tu estado de pago, servicio, tickets activo
 
             {% if result %}
                 <details>
-                    <summary>Ver detalle técnico</summary>
+                    <summary>Ver detalle tecnico</summary>
                     <pre>{{ result }}</pre>
                 </details>
             {% endif %}
@@ -231,7 +249,7 @@ Después de validarte podré mostrar tu estado de pago, servicio, tickets activo
 
         <form method="POST" action="/whatsapp">
             <input id="message" name="message" placeholder="Escribe tu mensaje..." required>
-            <button class="send" type="submit">➤</button>
+            <button class="send" type="submit">></button>
         </form>
     </div>
 
@@ -257,8 +275,8 @@ CRITICAL_KEYWORDS = [
     "no tengo internet",
     "sin servicio",
     "no tengo servicio",
-    "sin señal",
-    "falta de señal",
+    "sin senal",
+    "falta de senal",
     "poste",
     "corte total",
 ]
@@ -270,8 +288,8 @@ ADMIN_KEYWORDS = [
     "cambiar plan",
     "cambio de plan",
     "cancelar",
-    "cancelación",
-    "contraseña",
+    "cancelacion",
+    "contrasena",
     "password",
     "domicilio",
     "administrativo",
@@ -360,17 +378,17 @@ def active_tickets(tickets):
 
 def summarize_tickets(tickets, limit=5):
     if not tickets:
-        return "No encontré tickets activos."
+        return "No encontre tickets activos."
 
     lines = []
 
     for ticket in tickets[:limit]:
         lines.append(
-            f"• {ticket.get('ticket_number')} | {ticket.get('category')} | {ticket.get('status')}"
+            f"- {ticket.get('ticket_number')} | {ticket.get('category')} | {ticket.get('status')}"
         )
 
     if len(tickets) > limit:
-        lines.append(f"• Y {len(tickets) - limit} ticket(s) más.")
+        lines.append(f"- Y {len(tickets) - limit} ticket(s) mas.")
 
     return "\n".join(lines)
 
@@ -380,7 +398,7 @@ def summarize_service(services):
         services = [services]
 
     if not isinstance(services, list) or not services:
-        return "No encontré servicio activo."
+        return "No encontre servicio activo."
 
     service = services[0]
     package = service.get("package") or "paquete no disponible"
@@ -427,7 +445,7 @@ def create_support_ticket(id_customer, problem_type, problem_text):
     elif problem_type == "administrative":
         id_category = select_category_id(
             categories,
-            ["soporte general", "cobranza", "cambio de plan", "cancelación"],
+            ["soporte general", "cobranza", "cambio de plan", "cancelacion"],
             fallback_id=1,
         )
     elif problem_type == "remote":
@@ -475,7 +493,7 @@ def validate_customer_flow(id_customer):
 
     if customer_status not in [200, 201] or not isinstance(customer, dict):
         return (
-            "No encontré ese cliente. Por favor verifica el ID e intenta de nuevo.",
+            "No encontre ese cliente. Por favor verifica el ID e intenta de nuevo.",
             {
                 "mode": "requires_customer_validation",
                 "customer_status": customer_status,
@@ -495,7 +513,7 @@ def validate_customer_flow(id_customer):
     payment_label = payment_status_label(customer.get("payment_status"))
 
     bot_message = (
-        f"Cliente validado ✅\n\n"
+        f"Cliente validado \n\n"
         f"Estado de pago: {payment_label}.\n"
         f"Servicio: {service_summary}.\n\n"
         f"Tickets activos:\n{tickets_summary}"
@@ -527,10 +545,10 @@ def handle_authenticated_message(message, customer):
     text = str(message).lower()
     id_customer = customer.get("idCustomer")
 
-    if "volver" in text or "menú" in text or "menu" in text:
+    if "volver" in text or "menu" in text or "menu" in text:
         clear_session_customer()
         return (
-            "Volví al menú principal ✅\n\nPara iniciar de nuevo, escribe tu ID de cliente.",
+            "Volvi al menu principal \n\nPara iniciar de nuevo, escribe tu ID de cliente.",
             {"mode": "main_menu_reset"},
         )
 
@@ -554,7 +572,7 @@ def handle_authenticated_message(message, customer):
 
         return (
             f"Tu estado de pago aparece como: {payment_label}.\n\n"
-            "La API no expone un monto exacto de saldo en este ambiente, así que usamos payment_status como referencia.",
+            "La API no expone un monto exacto de saldo en este ambiente, asi que usamos payment_status como referencia.",
             {
                 "mode": "show_balance",
                 "balance_status": status,
@@ -562,33 +580,33 @@ def handle_authenticated_message(message, customer):
             },
         )
 
-    if "sí funcionó" in text or "si funciono" in text or "ya funcionó" in text or "ya funciona" in text:
+    if "si funciono" in text or "si funciono" in text or "ya funciono" in text or "ya funciona" in text:
         record = save_local_modification(
             "resolved_after_guidance",
             message,
             customer=customer,
-            extra={"resolution": "Cliente indica que las indicaciones básicas funcionaron."},
+            extra={"resolution": "Cliente indica que las indicaciones basicas funcionaron."},
         )
 
         return (
-            "Perfecto ✅ Registré que el problema quedó solucionado después de las indicaciones básicas.\n\n"
-            "No modifiqué el dataset original; dejé evidencia local para seguimiento.",
+            "Perfecto  Registre que el problema quedo solucionado despues de las indicaciones basicas.\n\n"
+            "No modifique el dataset original; deje evidencia local para seguimiento.",
             {
                 "mode": "resolved_after_guidance",
                 "local_modification": record,
             },
         )
 
-    if "no funcionó" in text or "no funciono" in text or "sigue igual" in text or "no sirve" in text:
+    if "no funciono" in text or "no funciono" in text or "sigue igual" in text or "no sirve" in text:
         created = create_support_ticket(
             id_customer,
             "critical",
-            "Cliente indica que el diagnóstico básico no funcionó. Requiere revisión técnica.",
+            "Cliente indica que el diagnostico basico no funciono. Requiere revision tecnica.",
         )
 
         return (
-            "Entiendo. Como no funcionó la revisión básica, creé un ticket para soporte técnico ✅\n\n"
-            "Un integrante del equipo deberá revisar el caso.",
+            "Entiendo. Como no funciono la revision basica, cree un ticket para soporte tecnico \n\n"
+            "Un integrante del equipo debera revisar el caso.",
             {
                 "mode": "created_ticket_after_failed_guidance",
                 "ticket_creation": created,
@@ -603,7 +621,7 @@ def handle_authenticated_message(message, customer):
             {
                 "mode": "langgraph_edge_diagnosis",
                 "agent_detail": detail,
-                "next_options": ["sí funcionó", "no funcionó", "volver al menú"],
+                "next_options": ["si funciono", "no funciono", "volver al menu"],
             },
         )
 
@@ -611,12 +629,12 @@ def handle_authenticated_message(message, customer):
         created = create_support_ticket(
             id_customer,
             "critical",
-            f"Reporte crítico del cliente: {message}",
+            f"Reporte critico del cliente: {message}",
         )
 
         return (
-            "Por lo que describes, puede requerirse revisión técnica directa.\n\n"
-            "Creé un ticket de soporte técnico ✅",
+            "Por lo que describes, puede requerirse revision tecnica directa.\n\n"
+            "Cree un ticket de soporte tecnico ",
             {
                 "mode": "critical_created_ticket",
                 "ticket_creation": created,
@@ -631,7 +649,7 @@ def handle_authenticated_message(message, customer):
         )
 
         return (
-            "Listo ✅ Creé un ticket para que soporte revise tu solicitud administrativa.",
+            "Listo  Cree un ticket para que soporte revise tu solicitud administrativa.",
             {
                 "mode": "administrative_created_ticket",
                 "ticket_creation": created,
@@ -645,17 +663,17 @@ def handle_authenticated_message(message, customer):
             bot_message = (
                 "Parece un problema de lentitud o intermitencia.\n\n"
                 "Probemos primero:\n"
-                "1. Revisa que el módem esté encendido.\n"
-                "2. Reinícialo durante 30 segundos.\n"
+                "1. Revisa que el modem este encendido.\n"
+                "2. Reinicialo durante 30 segundos.\n"
                 "3. Espera a que las luces se estabilicen.\n\n"
-                "También ejecuté una prueba de conexión desde el agente y respondió correctamente.\n\n"
-                "Si esto no funcionó, escribe: no funcionó.\n"
-                "Si ya quedó, escribe: sí funcionó."
+                "Tambien ejecute una prueba de conexion desde el agente y respondio correctamente.\n\n"
+                "Si esto no funciono, escribe: no funciono.\n"
+                "Si ya quedo, escribe: si funciono."
             )
         else:
             bot_message = (
-                "Detecté un posible problema de conexión general desde el agente.\n\n"
-                "Si tu servicio sigue fallando, escribe: no funcionó."
+                "Detecte un posible problema de conexion general desde el agente.\n\n"
+                "Si tu servicio sigue fallando, escribe: no funciono."
             )
 
         logger.info(
@@ -667,14 +685,14 @@ def handle_authenticated_message(message, customer):
             {
                 "mode": "remote_guidance",
                 "ping_test": ping_result,
-                "next_options": ["sí funcionó", "no funcionó", "volver al menú"],
+                "next_options": ["si funciono", "no funciono", "volver al menu"],
             },
         )
 
     classification = classify_free_text_problem(message)
 
     bot_message = (
-        "Puedo ayudarte con soporte, pero necesito un poco más de contexto.\n\n"
+        "Puedo ayudarte con soporte, pero necesito un poco mas de contexto.\n\n"
         "Describe si es falla de internet, luz roja, cable cortado, lentitud, pago o cambio de plan."
     )
 
@@ -707,7 +725,7 @@ def run_legacy_chatbot_flow(message):
 
     if not customer:
         return (
-            "Antes de continuar necesito validar tu cliente.\n\nEscribe tu ID así:\ncliente 170",
+            "Antes de continuar necesito validar tu cliente.\n\nEscribe tu ID asi:\ncliente 170",
             {"mode": "requires_customer_validation"},
         )
 
@@ -759,12 +777,12 @@ def api_whatsapp():
     bot_message, result = run_chatbot_flow(message)
 
     return jsonify(
-        {
+        ascii_json({
             "message": message,
             "chatbot_message": bot_message,
             "show_menu": should_show_menu(result),
             "technical_detail": result,
-        }
+        })
     )
 
 
@@ -778,12 +796,12 @@ def api_summary():
     categories, categories_status = get_categories()
 
     return jsonify(
-        {
+        ascii_json({
             "service": "gns-whatsapp-chatbot",
             "categories_status": categories_status,
             "categories_available": len(categories) if isinstance(categories, list) else None,
             "status": "summary_generated",
-        }
+        })
     )
 
 

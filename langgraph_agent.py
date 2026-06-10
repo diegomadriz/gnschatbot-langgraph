@@ -30,7 +30,7 @@ NETWORK_PROBLEM_KEYWORDS = [
     "no tengo internet",
     "sin servicio",
     "desconexion",
-    "desconexión",
+    "desconexion",
     "se desconecta",
     "corte",
     "ping",
@@ -80,28 +80,28 @@ def build_customer_response_node(state: NetworkAgentState) -> NetworkAgentState:
 
     if not ping.get("success"):
         base_message = (
-            "Intenté verificar tu conexión directamente desde el router perimetral, "
-            "pero no pude completar la prueba automática en este momento. "
-            "Voy a dejar registrada la revisión para soporte técnico."
+            "Intente verificar tu conexion directamente desde el router perimetral, "
+            "pero no pude completar la prueba automatica en este momento. "
+            "Voy a dejar registrada la revision para soporte tecnico."
         )
     else:
         loss = parsed_ping.get("packet_loss_percent")
         avg = parsed_ping.get("avg_rtt_ms")
         hop_count = parsed_trace.get("hop_count")
 
-        loss_text = f"{loss}% de pérdida" if loss is not None else "pérdida no determinada"
+        loss_text = f"{loss}% de perdida" if loss is not None else "perdida no determinada"
         avg_text = f"{avg} ms de latencia promedio" if avg is not None else "latencia promedio no determinada"
         hops_text = f"{hop_count} salto(s) WAN observados" if hop_count else "traza WAN registrada"
 
         if loss == 0:
             health = "El enlace WAN se observa estable desde el borde."
         elif loss is not None and loss > 0:
-            health = "La prueba muestra pérdida de paquetes y requiere revisión técnica."
+            health = "La prueba muestra perdida de paquetes y requiere revision tecnica."
         else:
-            health = "La prueba se completó, pero la salida requiere revisión técnica."
+            health = "La prueba se completo, pero la salida requiere revision tecnica."
 
         base_message = (
-            "He verificado tu conexión directamente desde nuestro router perimetral.\n\n"
+            "He verificado tu conexion directamente desde nuestro router perimetral.\n\n"
             f"Destino probado: {target}\n"
             f"Resultado: {loss_text}, {avg_text}.\n"
             f"Ruta: {hops_text}.\n\n"
