@@ -12,6 +12,13 @@ load_dotenv()
 
 DEFAULT_TARGET = os.getenv("NETWORK_DIAG_TARGET", "8.8.8.8")
 SSH_TIMEOUT_SECONDS = int(os.getenv("SSH_TIMEOUT_SECONDS", "15"))
+ROUTER_COMMAND_TIMEOUT_SECONDS = int(os.getenv("ROUTER_COMMAND_TIMEOUT_SECONDS", "10"))
+ENABLE_TRACEROUTE = os.getenv("ENABLE_TRACEROUTE", "true").lower() in [
+    "1",
+    "true",
+    "yes",
+    "on",
+]
 
 
 def _load_paramiko():
@@ -55,7 +62,7 @@ def _config_is_complete(config):
     return bool(config["host"] and config["username"] and config["password"])
 
 
-def run_mikrotik_command(command, command_label):
+def run_mikrotik_command(command, command_label, command_timeout=None):
     """
     Ejecuta un comando permitido en RouterOS via SSH.
     Las credenciales se leen desde .env y nunca se registran.
@@ -106,8 +113,52 @@ def run_mikrotik_command(command, command_label):
         )
 
         _, stdout, stderr = client.exec_command(command, timeout=SSH_TIMEOUT_SECONDS)
-        output = stdout.read().decode("utf-8", errors="replace")
-        error = stderr.read().decode("utf-8", errors="replace")
+        channel = stdout.channel
+        channel.settimeout(1.0)
+        command_timeout = int(command_timeout or ROUTER_COMMAND_TIMEOUT_SECONDS)
+        output_chunks = []
+        error_chunks = []
+        deadline = time.time() + command_timeout
+
+        while True:
+            if channel.recv_ready():
+                output_chunks.append(channel.recv(65535).decode("utf-8", errors="replace"))
+
+            if channel.recv_stderr_ready():
+                error_chunks.append(channel.recv_stderr(65535).decode("utf-8", errors="replace"))
+
+            if channel.exit_status_ready():
+                while channel.recv_ready():
+                    output_chunks.append(channel.recv(65535).decode("utf-8", errors="replace"))
+                while channel.recv_stderr_ready():
+                    error_chunks.append(channel.recv_stderr(65535).decode("utf-8", errors="replace"))
+                break
+
+            if time.time() >= deadline:
+                duration_ms = int((time.time() - started_at) * 1000)
+                logger.warning(
+                    f"NETWORK_TOOL | device=mikrotik | host={config['host']} | "
+                    f"command={command_label} | status=command_timeout | duration_ms={duration_ms}"
+                )
+
+                try:
+                    channel.close()
+                except Exception:
+                    pass
+
+                return {
+                    "success": False,
+                    "status": "command_timeout",
+                    "command": command_label,
+                    "output": "".join(output_chunks),
+                    "error": f"El comando excedió {command_timeout} segundos.",
+                    "duration_ms": duration_ms,
+                }
+
+            time.sleep(0.2)
+
+        output = "".join(output_chunks)
+        error = "".join(error_chunks)
         duration_ms = int((time.time() - started_at) * 1000)
         success = not error.strip()
 
@@ -150,7 +201,7 @@ def run_mikrotik_command(command, command_label):
 def mikrotik_ping(target=None, count=5):
     target = validate_target(target)
     command = f"/ping {target} count={int(count)}"
-    result = run_mikrotik_command(command, f"ping:{target}")
+    result = run_mikrotik_command(command, f"ping:{target}", command_timeout=ROUTER_COMMAND_TIMEOUT_SECONDS)
     result["target"] = target
     result["parsed"] = parse_mikrotik_ping(result.get("output", ""))
     return result
@@ -158,8 +209,22 @@ def mikrotik_ping(target=None, count=5):
 
 def mikrotik_traceroute(target=None):
     target = validate_target(target)
+    if not ENABLE_TRACEROUTE:
+        logger.info(
+            f"NETWORK_TOOL | device=mikrotik | command=traceroute:{target} | status=disabled"
+        )
+        return {
+            "success": True,
+            "status": "disabled",
+            "command": f"traceroute:{target}",
+            "target": target,
+            "output": "",
+            "error": "",
+            "parsed": {"hop_count": 0, "hops": []},
+        }
+
     command = f"/tool traceroute {target}"
-    result = run_mikrotik_command(command, f"traceroute:{target}")
+    result = run_mikrotik_command(command, f"traceroute:{target}", command_timeout=ROUTER_COMMAND_TIMEOUT_SECONDS)
     result["target"] = target
     result["parsed"] = parse_mikrotik_traceroute(result.get("output", ""))
     return result
