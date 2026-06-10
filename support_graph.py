@@ -245,6 +245,51 @@ def create_support_ticket(id_customer, problem_type, problem_text):
     }
 
 
+def compact_edge_diagnostics(diagnostics):
+    if not diagnostics:
+        return {}
+
+    ping = diagnostics.get("ping") or {}
+    traceroute = diagnostics.get("traceroute") or {}
+    ubiquiti = diagnostics.get("ubiquiti") or {}
+    ubiquiti_checks = ubiquiti.get("checks") or []
+    first_ubiquiti_check = ubiquiti_checks[0] if ubiquiti_checks else {}
+
+    return {
+        "target": diagnostics.get("target"),
+        "status": diagnostics.get("status"),
+        "success": diagnostics.get("success"),
+        "interpretation": diagnostics.get("interpretation"),
+        "ping": {
+            "command": ping.get("command"),
+            "status": ping.get("status"),
+            "success": ping.get("success"),
+            "duration_ms": ping.get("duration_ms"),
+            "parsed": ping.get("parsed"),
+        },
+        "traceroute": {
+            "command": traceroute.get("command"),
+            "status": traceroute.get("status"),
+            "success": traceroute.get("success"),
+            "duration_ms": traceroute.get("duration_ms"),
+            "error": traceroute.get("error"),
+            "parsed": {
+                "hop_count": (traceroute.get("parsed") or {}).get("hop_count"),
+                "unique_hop_count": (traceroute.get("parsed") or {}).get("unique_hop_count"),
+                "unique_hops": (traceroute.get("parsed") or {}).get("unique_hops"),
+            },
+        },
+        "ubiquiti": {
+            "status": ubiquiti.get("status"),
+            "success": ubiquiti.get("success"),
+            "host": ubiquiti.get("host"),
+            "selected_endpoint": ubiquiti.get("selected_endpoint"),
+            "duration_ms": ubiquiti.get("duration_ms"),
+            "http_status": first_ubiquiti_check.get("http_status"),
+        },
+    }
+
+
 def parse_message_node(state: SupportState) -> SupportState:
     message = str(state.get("message", "")).strip()
     text = message.lower()
@@ -479,46 +524,39 @@ def response_node(state: SupportState) -> SupportState:
         target = diagnostics.get("target") or os.getenv("NETWORK_DIAG_TARGET", "8.8.8.8")
         loss = parsed_ping.get("packet_loss_percent")
         avg = parsed_ping.get("avg_rtt_ms")
-        traceroute_status = traceroute.get("status")
         hop_count = parsed_traceroute.get("unique_hop_count") or parsed_traceroute.get("hop_count")
-
-        if traceroute_status == "command_timeout" and hop_count:
-            route_text = (
-                f"Traceroute: activado; registro {hop_count} salto(s) y se corto por timeout operativo "
-                "para no bloquear la conversacion."
-            )
-        elif traceroute_status == "disabled":
-            route_text = "Traceroute: omitido por configuracion; se ejecuto ping de borde."
-        elif traceroute.get("success"):
-            route_text = f"Traceroute: completado con {hop_count or 0} salto(s) registrados."
-        else:
-            route_text = "Traceroute: activado, pero no se pudo completar en esta ejecucion."
-
-        if ubiquiti.get("status") == "disabled":
-            radio_text = "Antena Ubiquiti: consulta HTTPS omitida por configuracion."
-        elif ubiquiti.get("success"):
-            radio_text = (
-                "Antena Ubiquiti: respondio correctamente por HTTPS "
-                f"({ubiquiti.get('selected_endpoint')})."
-            )
-        elif ubiquiti.get("status") == "auth_or_forbidden":
-            radio_text = "Antena Ubiquiti: respondio por HTTPS, pero no autorizo la consulta de estado."
-        elif ubiquiti:
-            radio_text = "Antena Ubiquiti: se intento consulta HTTPS, pero no fue posible obtener estado."
-        else:
-            radio_text = "Antena Ubiquiti: sin resultado registrado."
 
         if ping.get("success"):
             loss_text = f"{loss}% de perdida" if loss is not None else "perdida no determinada"
             avg_text = f"{avg} ms de latencia promedio" if avg is not None else "latencia promedio no determinada"
+            summary = interpretation.get("summary") or "el diagnostico de borde quedo registrado."
+            summary = summary[:1].lower() + summary[1:] if summary else summary
+            if interpretation.get("status") == "optimal":
+                next_step_text = (
+                    "Si sigues percibiendo lentitud, el siguiente paso es revisar WiFi, "
+                    "cableado interno o el equipo desde el que te conectas."
+                )
+            else:
+                next_step_text = (
+                    interpretation.get("recommendation")
+                    or "Continuaremos dando seguimiento si el problema persiste."
+                )
+            route_text = (
+                f"Tambien valide la ruta hacia Internet ({hop_count} salto(s) observados). "
+                if hop_count
+                else ""
+            )
+            radio_text = (
+                "El equipo de radio tambien fue alcanzado por HTTPS. "
+                if ubiquiti.get("success") or ubiquiti.get("status") == "auth_or_forbidden"
+                else ""
+            )
             response = (
-                "He verificado tu conexion directamente desde nuestro router perimetral.\n\n"
-                f"Destino probado: {target}\n"
-                f"Ping: {loss_text}, {avg_text}.\n"
-                f"{route_text}\n"
-                f"{radio_text}\n\n"
-                f"Conclusion: {interpretation.get('summary') or 'Diagnostico de borde registrado.'}\n"
-                f"Siguiente paso: {interpretation.get('recommendation') or 'Continuar con seguimiento de soporte.'}\n\n"
+                "He verificado tu conexion directamente en nuestro router perimetral.\n\n"
+                f"Actualmente veo {loss_text} y {avg_text}; "
+                f"{summary}\n"
+                f"{route_text}{radio_text}\n\n"
+                f"{next_step_text}\n\n"
                 "Si tu servicio sigue fallando, escribe: no funciono. Si ya quedo, escribe: si funciono."
             )
         else:
@@ -550,7 +588,7 @@ def response_node(state: SupportState) -> SupportState:
             "local_history_loaded": bool(context.get("local_modifications_tail")),
             "agent_logs_loaded": bool(context.get("agent_log_tail")),
         },
-        "edge_diagnostics": diagnostics,
+        "edge_diagnostics": compact_edge_diagnostics(diagnostics),
         "ticket_creation": ticket_creation,
         "local_modification": state.get("local_modification"),
         "next_options": ["si funciono", "no funciono", "volver al menu"],
